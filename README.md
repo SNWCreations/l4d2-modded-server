@@ -16,8 +16,6 @@ Alternatively you can Download this repo and extract it to where you want your s
 
 All the following instructions will use the repo folder location as the root.
 
-- Create a folder named `steamcmd` and download SteamCMD by following the instructions [here](https://developer.valvesoftware.com/wiki/SteamCMD#Downloading_SteamCMD), then extract it inside steamcmd so you should have \steamcmd\steamcmd.exe.
-
 - If setting up internet server:
 
     Open \win.ini
