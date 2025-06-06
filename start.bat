@@ -33,7 +33,7 @@ start /wait %ROOT_DIR%steamcmd\steamcmd.exe +force_install_dir ../server +login 
 echo Deleting addons folder.
 rmdir /S /Q "%ROOT_DIR%server\left4dead2\addons\"
 
-:: If you have modifications in your cfg/settings/ folder they should be in custom_files as these are merged at the end
+:: If you have modifications in your cfg/sourcemod/ folder they should be in custom_files as these are merged at the end
 echo Deleting cfg/sourcemod folder.
 rmdir /S /Q "%ROOT_DIR%server\left4dead2\cfg\sourcemod\"
 
