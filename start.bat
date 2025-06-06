@@ -5,7 +5,6 @@ title Left 4 Dead 2
 
 :: Set variables
 set ROOT_DIR=%~dp0
-set "gameinfo=server\left4dead2\gameinfo.txt"
 if not exist server.ini copy NUL server.ini
 for /f %%S in (server.ini) do set %%S
 
