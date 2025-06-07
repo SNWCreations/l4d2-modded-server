@@ -84,6 +84,8 @@ So this can be used to set the server hostname to something you want, set the RC
 
 Annoyed with recreating the folder structure? You can simply copy the file you want by running `custom_file <file>` in your Command Prompt or `.\custom_file.ps1 <file>` in PowerShell at the root of this repository folder, the script will recreate the path structure for you.
 
+Wanted to install Steam workshop files? Just checkout `workshop.bat` script (wraps `workshop.ps1` PowerShell script), it will handle Steam Workshop downloads for you, just need your Steam account name so SteamCMD will ask for your password (or lookup cached credentials) later.
+
 ### Setting admins
 
 There are two ways to configure the admin list, I prefer `admin_simple.ini` from `addons/sourcemod/configs` folder, `admins.cfg` is also available though.
