@@ -157,7 +157,7 @@ DebugLog "Removing temporary SteamCMD script: $cmdFile"
 Remove-Item $cmdFile -Force
 
 # Move and convert downloaded files
-$WorkshopContentDir = Join-Path $RootDir "steamcmd\steamapps\workshop\content\550"
+$WorkshopContentDir = Join-Path $RootDir "steamcmd\steamapps\workshop\content\$appid"
 if (Test-Path $WorkshopContentDir) {
     # Move .vpk files (flatten structure)
     $vpkFiles = Get-ChildItem -Path $WorkshopContentDir -Recurse -Filter *.vpk -ErrorAction SilentlyContinue
