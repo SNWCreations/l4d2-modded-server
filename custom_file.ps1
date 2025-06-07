@@ -16,9 +16,24 @@ if (-not $RelativePath) {
 $SourceBase = "server\left4dead2"
 $TargetBase = "custom_files"
 
-# Build full source and target paths
-$SourceFile = Join-Path $SourceBase $RelativePath
-$TargetFile = Join-Path $TargetBase $RelativePath
+# Determine if the input is absolute or relative
+if ([System.IO.Path]::IsPathRooted($RelativePath)) {
+    # Absolute path: check if it contains the SourceBase
+    $normalizedSourceBase = [System.IO.Path]::GetFullPath($SourceBase)
+    $normalizedInput = [System.IO.Path]::GetFullPath($RelativePath)
+    if ($normalizedInput.StartsWith($normalizedSourceBase, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $relativeFromSource = $normalizedInput.Substring($normalizedSourceBase.Length).TrimStart('\','/')
+        $SourceFile = $normalizedInput
+        $TargetFile = Join-Path $TargetBase $relativeFromSource
+    } else {
+        Write-Error "Absolute path must be under '$SourceBase'."
+        exit 1
+    }
+} else {
+    # Relative path: build as before
+    $SourceFile = Join-Path $SourceBase $RelativePath
+    $TargetFile = Join-Path $TargetBase $RelativePath
+}
 
 try {
     # Resolve the full path of the source file, error if not found
