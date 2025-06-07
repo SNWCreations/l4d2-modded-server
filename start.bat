@@ -12,14 +12,8 @@ cls
 
 echo If you want to quit, close the Left 4 Dead 2 window and type Y followed by Enter.
 
-:: Ensure steamcmd exists
-if not exist "%ROOT_DIR%steamcmd\steamcmd.exe" (
-    mkdir "%ROOT_DIR%steamcmd"
-    echo Downloading SteamCMD
-    powershell -Command "Invoke-WebRequest -Uri https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip -OutFile '%ROOT_DIR%steamcmd\steamcmd.zip'"
-    powershell -Command "Expand-Archive -Path '%ROOT_DIR%steamcmd\steamcmd.zip' -DestinationPath '%ROOT_DIR%steamcmd'"
-    del "%ROOT_DIR%steamcmd\steamcmd.zip"
-)
+:: Ensure steamcmd exists using PowerShell script
+powershell -ExecutionPolicy Bypass -File "%ROOT_DIR%steamcmd-dl.ps1"
 
 :: Use SteamCMD to download L4D2
 :: If you want to validate files, put validate before +quit so it reads "+app_update 222860 validate +quit"

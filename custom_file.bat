@@ -1,1 +1,1 @@
-@powershell -Command ".\custom_file.ps1 %1"
+@powershell -ExecutionPolicy Bypass -File ".\custom_file.ps1" %*
