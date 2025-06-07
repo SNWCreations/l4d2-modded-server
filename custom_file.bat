@@ -1,0 +1,1 @@
+@powershell -Command ".\custom_file.ps1 %1"

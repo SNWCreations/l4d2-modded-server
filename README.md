@@ -82,6 +82,8 @@ I have created a folder /custom_files/ in the root of the project, where you mir
 
 So this can be used to set the server hostname to something you want, set the RCON or the admins of the server.
 
+Annoyed with recreating the folder structure? You can simply copy the file you want by running `custom_file <file>` in your Command Prompt or `.\custom_file.ps1 <file>` in PowerShell at the root of this repository folder, the script will recreate the path structure for you.
+
 ### Setting admins
 
 There are two ways to configure the admin list, I prefer `admin_simple.ini` from `addons/sourcemod/configs` folder, `admins.cfg` is also available though.
