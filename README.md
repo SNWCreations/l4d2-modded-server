@@ -18,7 +18,7 @@ All the following instructions will use the repo folder location as the root.
 
 - If setting up internet server:
 
-    Open \win.ini
+    Open server.ini
 
     Set LAN to 0
 
@@ -28,7 +28,7 @@ All the following instructions will use the repo folder location as the root.
 
 - If setting up LAN server:
 
-    Open \win.ini
+    Open server.ini
 
     Set LAN to 1
 
