@@ -18,7 +18,7 @@ powershell -ExecutionPolicy Bypass -File "%ROOT_DIR%steamcmd-dl.ps1"
 :: Use SteamCMD to download L4D2
 :: If you want to validate files, put validate before +quit so it reads "+app_update 222860 validate +quit"
 echo Using SteamCMD to check for updates.
-start /wait %ROOT_DIR%steamcmd\steamcmd.exe +force_install_dir ../server +login anonymous +app_update 222860 +quit
+start /wait %ROOT_DIR%steamcmd\steamcmd.exe +force_install_dir ../server +login %STEAM_USER% +app_update 222860 +quit
 
 :start
 

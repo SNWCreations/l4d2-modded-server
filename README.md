@@ -16,9 +16,11 @@ Alternatively you can Download this repo and extract it to where you want your s
 
 All the following instructions will use the repo folder location as the root.
 
-- If setting up internet server:
+- Open server.ini
 
-    Open server.ini
+- Set STEAM_USER to the name of a Steam user that you owns and have access to L4D2.
+
+- If setting up internet server:
 
     Set LAN to 0
 
@@ -27,8 +29,6 @@ All the following instructions will use the repo folder location as the root.
     **You must connect to the server from the public IP, not the LAN IP even if you are on the same network.**
 
 - If setting up LAN server:
-
-    Open server.ini
 
     Set LAN to 1
 
@@ -53,6 +53,8 @@ All the following instructions will use the repo folder location as the root.
     and you should see a set of plugins in the output
 
 If you see content in both; everything is working.
+
+After the first run you can stop using anonymous login for server startup, but it is still necessary for workshop downloads.
 
 Just use `quit` or `exit` in server console if you want to stop the server.
 
