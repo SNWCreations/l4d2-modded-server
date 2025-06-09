@@ -58,15 +58,30 @@ if ($Single) {
     DebugLog "Collection mode. Collection ID: $collectionId"
 } elseif ($WorkshopUrl) {
     DebugLog "Parsing Workshop URL: $WorkshopUrl"
-    # Parse the URL for collection or item ID
-    if ($WorkshopUrl -match "workshop\/filedetails\/\?id=(\d+)") {
-        $isCollection = $true
-        $collectionId = $matches[1]
-        DebugLog "Detected collection URL. Collection ID: $collectionId"
-    } elseif ($WorkshopUrl -match "sharedfiles\/filedetails\/\?id=(\d+)") {
-        $isCollection = $false
-        $itemId = $matches[1]
-        DebugLog "Detected single item URL. Item ID: $itemId"
+    if ($WorkshopUrl -match "\?id=(\d+)") {
+        $possibleId = $matches[1]
+        DebugLog "Extracted ID from URL: $possibleId"
+        # Query Steam API to check if it's a collection or single item
+        $detailsApiUrl = "https://api.steampowered.com/ISteamRemoteStorage/GetCollectionDetails/v1/"
+        $body = @{ "collectioncount" = 1; "publishedfileids[0]" = $possibleId }
+        try {
+            $response = Invoke-RestMethod -Uri $detailsApiUrl -Method Post -Body $body
+            $collectionDetails = $response.response.collectiondetails
+            $children = $null
+            if ($collectionDetails -and $collectionDetails[0] -and $collectionDetails[0].children) {
+                $isCollection = $true
+                $collectionId = $possibleId
+                $children = $collectionDetails[0].children
+                DebugLog "Steam API indicates this is a collection. Collection ID: $collectionId"
+            } else {
+                $isCollection = $false
+                $itemId = $possibleId
+                DebugLog "Steam API indicates this is a single item. Item ID: $itemId"
+            }
+        } catch {
+            Write-Error "Failed to query Steam API to determine if the ID is a collection or item."
+            exit 1
+        }
     } else {
         Write-Error "Could not parse Workshop URL. Please provide a valid collection or item URL."
         exit 1
@@ -112,46 +127,33 @@ $loginCmd = "+login $UserName"
 DebugLog "Using Steam login for user: $UserName"
 
 if ($isCollection) {
-    DebugLog "Fetching collection details from Steam Web API"
-    $collectionApiUrl = "https://api.steampowered.com/ISteamRemoteStorage/GetCollectionDetails/v1/"
-    $body = @{ "collectioncount" = 1; "publishedfileids[0]" = $collectionId }
-    DebugLog "Collection API URL: $collectionApiUrl"
-    DebugLog "POST body: $($body | Out-String)"
-    $response = Invoke-RestMethod -Uri $collectionApiUrl -Method Post -Body $body
-    DebugLog "Full Steam API response:`n$($response | ConvertTo-Json -Depth 10)"
-    # Correctly extract children publishedfileid from the response
-    $collectionDetails = $response.response.collectiondetails
-    if (-not $collectionDetails -or $collectionDetails.Count -eq 0) {
-        Write-Error "Failed to fetch collection details."
-        exit 1
+    # Use $children from earlier if available, otherwise fetch
+    if (-not $children) {
+        $collectionApiUrl = "https://api.steampowered.com/ISteamRemoteStorage/GetCollectionDetails/v1/"
+        $body = @{ "collectioncount" = 1; "publishedfileids[0]" = $collectionId }
+        $response = Invoke-RestMethod -Uri $collectionApiUrl -Method Post -Body $body
+        $children = $response.response.collectiondetails[0].children
     }
-    $children = $collectionDetails[0].children
     if (-not $children) {
         Write-Error "No items found in the collection."
         exit 1
     }
     $items = $children | ForEach-Object { $_.publishedfileid }
-    DebugLog "Collection items: $($items -join ', ')"
     $cmds = @()
     foreach ($id in $items) {
         $cmds += "workshop_download_item $appid $id"
     }
     $cmds += "quit"
-    DebugLog "SteamCMD commands:`n$($cmds -join "`n")"
-    Set-Content -Path $cmdFile -Value $cmds
-    DebugLog "Running SteamCMD for collection..."
-    & $steamcmd $loginCmd +runscript "$cmdFile"
 } else {
-    # Download single item
     $cmds = @(
         "workshop_download_item $appid $itemId"
         "quit"
     )
-    DebugLog "SteamCMD commands:`n$($cmds -join "`n")"
-    Set-Content -Path $cmdFile -Value $cmds
-    DebugLog "Running SteamCMD for single item..."
-    & $steamcmd $loginCmd +runscript "$cmdFile"
 }
+DebugLog "SteamCMD commands:`n$($cmds -join "`n")"
+Set-Content -Path $cmdFile -Value $cmds
+DebugLog "Running SteamCMD for collection..."
+& $steamcmd $loginCmd +runscript "$cmdFile"
 
 DebugLog "Removing temporary SteamCMD script: $cmdFile"
 Remove-Item $cmdFile -Force
