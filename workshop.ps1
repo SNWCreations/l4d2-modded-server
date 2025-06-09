@@ -14,6 +14,11 @@
     The ID of a workshop collection to download.
 .PARAMETER VerboseDebug
     Enables debug logging for troubleshooting.
+.PARAMETER UserName
+    The Steam username to log in with. This is required for downloading workshop items.
+    If you have Steam Guard enabled, you will need to handle login request while running the script.
+    Do not use your password here; it will prompt for it securely.
+    Do not use anoymous login, as it will not work for workshop downloads.
 .PARAMETER Keep
     If specified, keeps the original downloaded files after copying them to the workshop directory.
 .EXAMPLE
