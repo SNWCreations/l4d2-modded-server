@@ -75,6 +75,7 @@ Just use `quit` or `exit` in server console if you want to stop the server.
 | Unreserve Lobby                 | 1.7h           | Removes lobby reservation when server is full or empty                                                                                                                                     | https://github.com/fbef0102/L4D1_2-Plugins/tree/master/l4d_unreservelobby     |
 | SourceMod Detailed Plugins List | 1.0            |                                                                                                                                                                                            | https://forums.alliedmods.net/showthread.php?t=347326                         |
 | Infinite Ammo                   | 1.5.6          | Give players infinite ammo                                                                                                                                                                 | https://github.com/wyxls/SourceModPlugins-L4D2/tree/master/l4d2_infiniteammo  |
+| No Friendly Fire                | 10.0           | Disables friendly-fire.                                                                                                                                                                    | https://forums.alliedmods.net/showthread.php?t=302822                         |
 
 ## Custom files
 
