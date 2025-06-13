@@ -76,6 +76,7 @@ Just use `quit` or `exit` in server console if you want to stop the server.
 | SourceMod Detailed Plugins List | 1.0            |                                                                                                                                                                                            | https://forums.alliedmods.net/showthread.php?t=347326                         |
 | Infinite Ammo                   | 1.5.6          | Give players infinite ammo                                                                                                                                                                 | https://github.com/wyxls/SourceModPlugins-L4D2/tree/master/l4d2_infiniteammo  |
 | No Friendly Fire                | 10.0           | Disables friendly-fire.                                                                                                                                                                    | https://forums.alliedmods.net/showthread.php?t=302822                         |
+| Game Mode Config Loader         | 1.6            | Executes a cfg file based on the games current settings at map load.                                                                                                                       | https://forums.alliedmods.net/showthread.php?p=834731                         |
 
 ## Custom files
 
