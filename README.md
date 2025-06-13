@@ -54,8 +54,6 @@ All the following instructions will use the repo folder location as the root.
 
 If you see content in both; everything is working.
 
-After the first run you can stop using anonymous login for server startup, but it is still necessary for workshop downloads.
-
 Just use `quit` or `exit` in server console if you want to stop the server.
 
 ## Included Mods
