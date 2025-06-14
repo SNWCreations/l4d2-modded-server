@@ -4,8 +4,6 @@
 
 A modded Left 4 Dead 2 (L4D2) server which includes some mods that enhances the gameplay.
 
-Designed to be run on Microsoft Windows, Linux support is not planned yet (PRs are welcome).
-
 ## Installation
 
 Make sure you have **10GB** free space at least.
@@ -16,41 +14,43 @@ Alternatively you can Download this repo and extract it to where you want your s
 
 All the following instructions will use the repo folder location as the root.
 
-- Open server.ini
+### Common setup (Windows & Linux)
 
-- Set STEAM_USER to the name of a Steam user that you owns and have access to L4D2.
+- Open `server.ini`
+- Set `STEAM_USER` to the name of a Steam user that you own and have access to L4D2.
+- If setting up an internet server:
+    - Set `LAN` to `0`
+    - Make sure you port forward UDP: 27015 on your router so players can connect from the internet.
+    - **You must connect to the server from the public IP, not the LAN IP even if you are on the same network.**
+- If setting up a LAN server:
+    - Set `LAN` to `1`
+- Add admins (see [Setting admins](#setting-admins))
+- Accept both Private and Public connections in your firewall.
 
-- If setting up internet server:
-
-    Set LAN to 0
-
-    Make sure you port forward on your router UDP: 27015 so players can connect from the internet.
-
-    **You must connect to the server from the public IP, not the LAN IP even if you are on the same network.**
-
-- If setting up LAN server:
-
-    Set LAN to 1
-
-- Add admins (instruction [here](#setting-admins))
-
-- Accept both Private and Public connections on Windows Firewall.
-
-# Run the server
+### Windows
 
 - Run `server.bat`
 
-- If running for the first time
+### Linux
 
-    To check everything is working correctly run the following commands in the server console:
+- Make sure you have `curl` and `rsync` installed. The provided scripts will attempt to install them automatically using `install-linux-tools.sh` if missing.
+- Make sure you have **PowerShell 7+** installed. If not, the provided scripts will attempt to install it automatically using Microsoft's official installer.
+- Make sure you have `git` installed (`sudo apt install git` on Debian/Ubuntu).
+- Clone the repo or extract it to your desired location.
+- Run `./start.sh` from the root of the repository.
+- On first run, the script will download and install SteamCMD and all required files.
 
-    `meta list`
+### First Run (All Platforms)
 
-    and you should see SourceMod in the output
+To check everything is working correctly run the following commands in the server console:
 
-    `sm plugins list`
-    
-    and you should see a set of plugins in the output
+First, run `meta list`
+
+and you should see SourceMod in the output
+
+Then run `sm plugins list`
+
+and you should see a set of plugins in the output
 
 If you see content in both; everything is working.
 

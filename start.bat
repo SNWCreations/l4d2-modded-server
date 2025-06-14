@@ -35,10 +35,6 @@ rmdir /S /Q "%ROOT_DIR%server\left4dead2\cfg\sourcemod\"
 echo Copying mod files.
 xcopy "%ROOT_DIR%left4dead2\*" "%ROOT_DIR%server\left4dead2\" /K /S /E /I /H /Y >NUL
 
-:: Merge Windows specific files
-echo Merging Windows specific files.
-xcopy "%ROOT_DIR%left4dead2\addons\windows\*" "%ROOT_DIR%server\left4dead2\" /K /S /E /I /H /Y >NUL
-
 :: Merge your custom files in
 echo Copying custom files.
 xcopy "%ROOT_DIR%custom_files\*" "%ROOT_DIR%server\left4dead2\" /K /S /E /I /H /Y >NUL

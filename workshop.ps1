@@ -100,19 +100,40 @@ if ($Single) {
     exit 1
 }
 
-# Ensure steamcmd.exe exists by running steamcmd-dl.ps1
-$RootDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$SteamCmdDl = Join-Path $RootDir "steamcmd-dl.ps1"
-DebugLog "Calling steamcmd-dl.ps1: $SteamCmdDl"
-powershell -ExecutionPolicy Bypass -File $SteamCmdDl
+# Detect platform
+$IsWinPlatform = $false
+if ($PSVersionTable.PSVersion -and $PSVersionTable.Platform) {
+    $IsWinPlatform = $PSVersionTable.Platform -eq "Win32NT"
+} elseif ($env:OS -eq "Windows_NT") {
+    $IsWinPlatform = $true
+} elseif ($env:OSTYPE -like "*win*") {
+    $IsWinPlatform = $true
+}
 
-# Find steamcmd.exe
-$steamcmd = Join-Path $RootDir "steamcmd\steamcmd.exe"
-DebugLog "Looking for steamcmd.exe at: $steamcmd"
+# Ensure steamcmd exists and select correct executable for platform
+$RootDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+
+if ($IsWinPlatform) {
+    $SteamCmdDl = Join-Path $RootDir "steamcmd-dl.ps1"
+    DebugLog "Calling steamcmd-dl.ps1: $SteamCmdDl"
+    powershell -ExecutionPolicy Bypass -File $SteamCmdDl
+    $steamcmd = Join-Path $RootDir "steamcmd\steamcmd.exe"
+    DebugLog "Detected Windows platform."
+} else {
+    $SteamCmdDlSh = Join-Path $RootDir "steamcmd-dl.sh"
+    DebugLog "Calling steamcmd-dl.sh: $SteamCmdDlSh"
+    bash $SteamCmdDlSh
+    $steamcmd = Join-Path $RootDir "steamcmd/steamcmd.sh"
+    DebugLog "Detected non-Windows platform."
+}
+DebugLog "Looking for SteamCMD executable at: $steamcmd"
+
 if (-not (Test-Path $steamcmd)) {
-    Write-Error "steamcmd.exe not found after attempting download."
+    Write-Error "steamcmd executable not found after attempting download: $steamcmd"
     exit 1
 }
+
+DebugLog "Using SteamCMD: $steamcmd"
 
 # Set download folder for VPKs
 $WorkshopDir = Join-Path $RootDir "custom_files\addons\workshop"
@@ -158,7 +179,11 @@ if ($isCollection) {
 DebugLog "SteamCMD commands:`n$($cmds -join "`n")"
 Set-Content -Path $cmdFile -Value $cmds
 DebugLog "Running SteamCMD for collection..."
-& $steamcmd $loginCmd +runscript "$cmdFile"
+if ($IsWinPlatform) {
+    & $steamcmd $loginCmd +runscript "$cmdFile"
+} else {
+    bash $steamcmd $loginCmd +runscript "$cmdFile"
+}
 
 DebugLog "Removing temporary SteamCMD script: $cmdFile"
 Remove-Item $cmdFile -Force
