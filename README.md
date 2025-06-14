@@ -97,6 +97,7 @@ Just use `quit` or `exit` in server console if you want to stop the server.
 | Block No Steam Logon                      | 1.2.3          | Attempts to bypass server's 'no steam logon' disconnection.                                                                                                                                | https://github.com/blueblur0730/modified-plugins/tree/main/source/l4d2_block_no_steam_logon                  |
 | 5+ Survivor Friendly Fire Quote Fix       | 1.1.5d         | Fixes friendly fire quotes not playing for the 5th survivor or higher.                                                                                                                     | https://forums.alliedmods.net/showthread.php?t=321127                                                        |
 | 5+ Survivor Rescue Closet                 | 1.0.0b         | Allows a single rescue entity to rescue all eligible survivors.                                                                                                                            | https://forums.alliedmods.net/showthread.php?t=340659                                                        |
+| Chat Exec                                 | 1.0            | Executes .cfg files through chat commands                                                                                                                                                  | https://github.com/SNWCreations/ChatExec                                                                     |
 
 ## Custom files
 
