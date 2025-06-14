@@ -35,6 +35,18 @@ rmdir /S /Q "%ROOT_DIR%server\left4dead2\cfg\sourcemod\"
 echo Copying mod files.
 xcopy "%ROOT_DIR%left4dead2\*" "%ROOT_DIR%server\left4dead2\" /K /S /E /I /H /Y >NUL
 
+:: Rename MetaMod-supplied metamod_x64.win.vdf to metamod_x64.vdf if present
+if exist "%ROOT_DIR%server\left4dead2\addons\metamod_x64.win.vdf" (
+    copy /Y "%ROOT_DIR%server\left4dead2\addons\metamod_x64.win.vdf" "%ROOT_DIR%server\left4dead2\addons\metamod_x64.vdf"
+)
+
+:: Fail if metamod_x64.vdf does not exist
+if not exist "%ROOT_DIR%server\left4dead2\addons\metamod_x64.vdf" (
+    echo ERROR: metamod_x64.vdf not found in server\left4dead2\addons. Startup aborted.
+    pause
+    exit /b 1
+)
+
 :: Merge your custom files in
 echo Copying custom files.
 xcopy "%ROOT_DIR%custom_files\*" "%ROOT_DIR%server\left4dead2\" /K /S /E /I /H /Y >NUL

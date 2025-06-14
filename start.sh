@@ -47,6 +47,17 @@ rm -rf "$ROOT_DIR/server/left4dead2/cfg/sourcemod/"
 echo "Copying mod files."
 rsync -a "$ROOT_DIR/left4dead2/" "$ROOT_DIR/server/left4dead2/"
 
+# Rename MetaMod-supplied metamod_x64.linux.vdf to metamod_x64.vdf if present
+if [ -f "$ROOT_DIR/server/left4dead2/addons/metamod_x64.linux.vdf" ]; then
+    cp -f "$ROOT_DIR/server/left4dead2/addons/metamod_x64.linux.vdf" "$ROOT_DIR/server/left4dead2/addons/metamod_x64.vdf"
+fi
+
+# Fail if metamod_x64.vdf does not exist
+if [ ! -f "$ROOT_DIR/server/left4dead2/addons/metamod_x64.vdf" ]; then
+    echo "ERROR: metamod_x64.vdf not found in server/left4dead2/addons. Startup aborted."
+    exit 1
+fi
+
 # Merge your custom files in
 echo "Copying custom files."
 rsync -a "$ROOT_DIR/custom_files/" "$ROOT_DIR/server/left4dead2/"
