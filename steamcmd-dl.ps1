@@ -1,3 +1,6 @@
+# This script downloads and extracts SteamCMD if it is not already present.
+# Only for Windows platforms, as it finally produces `steamcmd.exe`.
+
 $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $SteamCmdDir = Join-Path $RootDir "steamcmd"
 $SteamCmdExe = Join-Path $SteamCmdDir "steamcmd.exe"
