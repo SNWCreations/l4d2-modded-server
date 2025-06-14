@@ -1,0 +1,200 @@
+"Games"
+{
+	"left4dead2"
+	{
+
+		// <key>_patt will be verified and replaced by <key>_replace if it present
+		// <key>_nop can be used instead to replace <key>_patt by NOP opcodes
+		"Keys"
+		{
+			"UpdateMarkersReached_patt" "\x89\x04\x24\xE8\x2A\x2A\x2A\x2A\xF3\x0F\x2A\xC6\x8B\x53\x4C\xC1\xF8\x02"
+			"UpdateMarkersReached_nop"   "1"
+		}
+		"Offsets"
+		{
+
+			"CFrameSnapshotManager::m_PackedEntitiesPool"
+			{
+				"linux"		"40"
+				"windows"	"40"
+			}
+
+			"VersusCompletionScore"
+			{
+				"linux"		"996"
+				"windows"	"1000"
+			}
+
+			"TheDirector"
+			{
+				"windows"	"12"
+			}
+
+			"WarpGhostToInitialPosition__GetPlayerByCharacter"
+			{
+				"linux"		"265"
+				//"windows"	"304"
+			}
+
+			"WarpGhostToInitialPosition__MaxPlayerCount"
+			{
+				"linux"		"310"
+				//"windows"	"285"
+			}
+
+			"WarpGhostToInitialPosition__GetPlayerByCharacter_inline_len"
+			{
+				"windows"	"40"
+			}
+
+			"Tiebreak_CheckCodeLen"
+			{
+				"linux"		"104"
+				//"windows"	"62"
+			}
+		}
+
+		"Signatures"
+		{
+			"CFrameSnapshotManager::LevelChanged"
+			{
+				"library"	"engine"
+                "linux"		"@_ZN21CFrameSnapshotManager12LevelChangedEv"
+				"windows"	"\x56\x8B\xF1\x8D\x4E\x58\xE8\x2A\x2A\x2A\x2A\x8D\x4E\x28"
+			}
+
+			"CTerrorPlayer_WarpGhostToInitialPosition"
+			{
+				"library"	"server"
+				"linux"		"@_ZN13CTerrorPlayer26WarpGhostToInitialPositionEb"
+				"windows"	"\x53\x8B\xDC\x83\xEC\x08\x83\xE4\xF0\x83\xC4\x04\x55\x8B\x6B\x04\x89\x6C\x24\x04\x8B\xEC\x83\xEC\x58\x56\x8B\xF1\x8B\x06\x8B\x2A\x2A\x2A\x2A\x2A\x57"
+				/* 53 8B DC 83 EC 08 83 E4 F0 83 C4 04 55 8B 6B 04 89 6C 24 04 8B EC 83 EC 58 56 8B F1 8B 06 8B ? ? ? ? ? 57 */
+			}
+
+			// int CTerrorPlayer::GetPlayerByCharacter(int SurvivorCharacterType)
+			"CTerrorPlayer_GetPlayerByCharacter"
+			{
+				"library"	"server"
+				"linux"		"@_ZN13CTerrorPlayer20GetPlayerByCharacterE21SurvivorCharacterType"
+				"windows"	"\x2A\x2A\x2A\x2A\x2A\x2A\x83\xEC\x08\x83\xF8\x08\x75\x06\x33\xC0"
+				/* ? ? ? ? ? ? 83 EC 08 83 F8 08 75 06 33 C0 */
+			}
+
+			"CTerrorGameRules_RecomputeVersusCompletion"
+			{
+				"library"	"server"
+				"linux"		"@_ZN16CTerrorGameRules25RecomputeVersusCompletionEb"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x2A\x53\x33\xC0\x56\x57\x8B\xD9\x89\x2A\x2A\x89"
+				/* 55 8B EC 83 EC ? 53 33  C0 56 57 8B D9 89 ? ? 89 */
+			}
+
+			/*
+			 *	CGameRulesProxy::NotifyNetworkStateChanged(void)
+			 */
+			"CGameRulesProxy_NotifyNetworkStateChanged"
+			{
+				"library"	"server"
+				"linux"		"@_ZN15CGameRulesProxy25NotifyNetworkStateChangedEv"
+				"windows"	"\xA1\x2A\x2A\x2A\x2A\x85\xC0\x74\x2A\x80\x78"
+			}
+
+			/*
+			 *	CTerrorPlayer::OnRevivedByDefibrillator(CTerrorPlayer* who_use_defib, CSurvivorDeathModel *)
+			 */
+			"CTerrorPlayer_OnRevivedByDefibrillator"
+			{
+				"library"	"server"
+				"linux"		"@_ZN13CTerrorPlayer24OnRevivedByDefibrillatorEPS_P19CSurvivorDeathModel"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x2A\x53\x56\x8B\xF1\x8A\x86\x2A\x2A\x2A\x2A\x57\x6A\x2A\x88"
+				/* 55 8B EC 83 EC ? 53 56 8B F1 8A 86 ? ? ? ? 57 6A ? 88 */
+			}
+
+			"g_pDirector"
+			{
+				"library"	"server"
+				"linux"		"@TheDirector"
+			}
+
+			/* Used solely to get the offset for TheDirector
+			* CDirectorMusicBanks::OnRoundStart
+			* Has unique string "Event.Reveal"
+			*/
+			"DirectorMusicBanks_OnRoundStart"
+			{
+				"library" "server"
+				"windows" "\x55\x8B\xEC\x83\xEC\x2A\x56\x57\x8B\xF9\x8B\x0D\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x84"
+				/* 55 8B EC 83 EC ? 56 57 8B F9 8B 0D ? ? ? ? E8 ? ? ? ? 84 */
+			}
+
+			"CTerrorGameRules_GetVersusCompletion"
+			{
+				"library"	"server"
+				"linux"		"@_ZN16CTerrorGameRules19GetVersusCompletionEP13CTerrorPlayer"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x2A\x53\x56\x8B\x75\x2A\x8B\xD9\x85\xF6\x2A\x2A\x2A\x2A\x2A\x2A\x8B\xCE"
+				/* 55 8B EC 83 EC ? 53 56 8B 75 ? 8B D9 85 F6 ? ? ? ? ? ? 8B CE */
+			}
+
+			"CTerrorGameRules_GetVersusCompletionByCharacter"
+			{
+				"library"	"server"
+				"linux"		"@_ZNK16CTerrorGameRules31GetVersusCompletionPerCharacterE21SurvivorCharacterTypei"
+				"windows"	"\x55\x8B\xEC\x8B\x45\x2A\x56\x50\x8B\xF1\xE8\x2A\x2A\x2A\x2A\x8B\x4D\x2A\x8D\x44"
+				/* 55 8B EC 8B 45 ? 56 50 8B F1 E8 ? ? ? ? 8B 4D ? 8D 44 */
+			}
+
+			"CDirector_AreTeamsFlipped"
+			{
+				"library"	"server"
+				"linux"		"@_ZNK9CDirector15AreTeamsFlippedEv"
+				"windows"	"\x57\x8b\xf9\xe8****\x84\xc0\x75*\xf7\x05*******\x00\x56\x74*\xbe"
+			}
+
+			// CTerrorGameRules::GetChapterScore(int)
+			// Multiple matches, but we need first
+			"CTerrorGameRules_GetChapterScore"
+			{
+				"library"	"server"
+				"linux"		"@_ZN16CTerrorGameRules15GetChapterScoreEi"
+				"windows"	"\x55\x8B\xEC\x8B\x45\x08\x8B\x2A\x2A\x2A\x2A\x2A\x2A\x5D\xC2\x04"
+				/* 55 8B EC 8B 45 08 8B ? ? ? ? ? ? 5D C2 04 */
+			}
+
+			// CTerrorGameRules::GetTeamScore(int, bool)
+			"CTerrorGameRules_GetTeamScore"
+			{
+				"library"	"server"
+				"linux"		"@_ZN16CTerrorGameRules12GetTeamScoreEib"
+				"windows"	"\x55\x8B\xEC\x8B\x2A\x2A\x85\xC0\x2A\x2A\x33\xC0\x5D\xC2"
+				/* 55 8B EC 8B ? ? 85 C0 ? ? 33 C0 5D C2 */
+			}
+
+			"CHECK_CODE_Tiebreak"
+			{
+				"library"	"server"
+				"linux"		"\xC7\x44\x24\x04\x02\x00\x00\x00\x89\x04\x24\xE8\x2A\x2A\x2A\x2A\xC7\x44\x24\x04\x03\x00\x00\x00\x89\xC6\xA1"
+				"windows"	"\x6A\x02\xE8\x2A\x2A\x2A\x2A\x8B\x2A\x2A\x2A\x2A\x2A\x6A\x03\x8B\xF0"
+			}
+
+			"UpdateMarkersReached_search"
+			{
+				"library"	"server"
+				"linux"		"\x89\x04\x24\xE8\x2A\x2A\x2A\x2A\xF3\x0F\x2A\xC6\x8B\x53\x4C\xC1\xF8\x02"
+				"windows"	"\xF3\x0F\x10\x45\xFC\xC1\xF8\x02"
+			}
+
+			"DIV_CODE_AddSurvivorStats"
+			{
+				"library"	"server"
+				"linux"		"\x89\x04\x24\xE8\x2A\x2A\x2A\x2A\xC1\xF8\x02"
+				"windows"	"\x0F\x57\xC0\xC1\xF8\x02"
+			}
+
+			"DIV_CODE_GetVersusCompletion"
+			{
+				"library"	"server"
+				"linux"		"\xB8\x00\x00\x00\x00\xC1\xFE\x02\x85\xF6\x0F\x48\xF0"
+				"windows"	"\x33\xC9\xC1\xF8\x02"
+			}
+		}
+	}
+}
