@@ -183,10 +183,11 @@ function Update-ReadmeModVersions {
     }
 
     $lines = $lines | ForEach-Object {
-        $_ = Update-ModLine $_ "SourceMod" $SourceModVersion
-        $_ = Update-ModLine $_ "MetaMod:Source" $MetaModVersion
-        $_ = Update-ModLine $_ "Stripper: Source" $StripperVersion
-        $_
+        $line = $_
+        $line = Update-ModLine $line "SourceMod" $SourceModVersion
+        $line = Update-ModLine $line "MetaMod:Source" $MetaModVersion
+        $line = Update-ModLine $line "Stripper: Source" $StripperVersion
+        $line
     }
 
     Set-Content -Path $ReadmePath -Value $lines -Encoding UTF8
@@ -194,7 +195,7 @@ function Update-ReadmeModVersions {
 }
 
 # Helper to extract version from a file path or URL (generic)
-function Extract-Version {
+function Get-Version {
     param([string]$url, [string]$prefix)
     # Match: prefix-x.y.z-gitNNNN-
     $pattern = "$prefix-([0-9]+\.[0-9]+\.[0-9]+-git[0-9]+)-"
@@ -206,15 +207,15 @@ function Extract-Version {
 
 function Get-SourceMod-Version {
     param([string]$url)
-    return Extract-Version $url "sourcemod"
+    return Get-Version $url "sourcemod"
 }
 function Get-MetaMod-Version {
     param([string]$url)
-    return Extract-Version $url "mmsource"
+    return Get-Version $url "mmsource"
 }
 function Get-Stripper-Version {
     param([string]$url)
-    return Extract-Version $url "stripper"
+    return Get-Version $url "stripper"
 }
 
 # Helper to read current versions from README.md
