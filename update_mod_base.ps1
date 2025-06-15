@@ -6,6 +6,18 @@ $ErrorActionPreference = "Stop"
 $TempRoot = Join-Path $PSScriptRoot "temp"
 if (-not (Test-Path $TempRoot)) { New-Item -ItemType Directory -Path $TempRoot | Out-Null }
 
+# Cleanup function to remove temp files and exit with code
+function Cleanup-And-Exit {
+    param (
+        [int]$exitCode = 0
+    )
+    Write-Host "Cleaning up temporary files..."
+    if (Test-Path $TempRoot) {
+        Remove-Item $TempRoot -Recurse -Force
+    }
+    exit $exitCode
+}
+
 # SourceMod direct API URLs
 $SourceModWinUrl   = "https://sourcemod.net/latest.php?os=windows&version=1.12"
 $SourceModLinuxUrl = "https://sourcemod.net/latest.php?os=linux&version=1.12"
@@ -271,7 +283,7 @@ if ($currentVersions.Stripper -ne $latestStripper) { $modsToUpdate += "stripper"
 # Only update mods that are outdated
 if ($modsToUpdate.Count -eq 0) {
     Write-Host "All mods are up to date. No update needed."
-    exit 0
+    Cleanup-And-Exit 0
 }
 
 # Update only outdated mods
@@ -293,7 +305,7 @@ foreach ($mod in $modsToUpdate) {
 }
 
 # Clean up temp folder
-if (Test-Path $TempRoot) { Remove-Item $TempRoot -Recurse -Force }
+Cleanup-And-Exit 0
 
 # Update README.md mod versions before commit
 $newSM = $currentVersions.SourceMod
