@@ -121,7 +121,8 @@ Just copy it to the `custom_files/addons/sourcemod/configs` and edit it by follo
 
 - [kus](https://github.com/kus) - [His CS2 modded server repository](https://github.com/kus/cs2-modded-server) inspired me to make this,
  also used some code from it to make the startup script in this repository.
-- [fbef0102 (aka. Harry)](https://github.com/fef0102) - His tutorial about how to setup a L4D2 server which supports 4+ players helped me
+- [AlliedModders](https://www.alliedmods.net) - Thanks for their SourceMod, MetaMod: Source, which is the base of this project.
+- [fbef0102 (aka. Harry)](https://github.com/fbef0102) - His tutorial about how to setup a L4D2 server which supports 4+ players helped me
  to introduce the 4+ player support update.
 - Authors of the plugins used in this project, big thanks to you all for bringing these great plugins to the community!
 
