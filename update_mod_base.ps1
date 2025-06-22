@@ -7,7 +7,7 @@ $TempRoot = Join-Path $PSScriptRoot "temp"
 if (-not (Test-Path $TempRoot)) { New-Item -ItemType Directory -Path $TempRoot | Out-Null }
 
 # Cleanup function to remove temp files and exit with code
-function Cleanup-And-Exit {
+function Remove-TempAndExit {
     param (
         [int]$exitCode = 0
     )
@@ -70,6 +70,29 @@ function Get-LatestReleaseUrlRegex {
 }
 $StripperWinUrl = Get-LatestReleaseUrlRegex -PageUrl $StripperSnapshotPage -Pattern $StripperWinPattern -Prefix $StripperSnapshotPage
 $StripperLinuxUrl = Get-LatestReleaseUrlRegex -PageUrl $StripperSnapshotPage -Pattern $StripperLinuxPattern -Prefix $StripperSnapshotPage
+
+# Accelerator download page and patterns
+$AcceleratorBase = "https://builds.limetech.io/"
+$AcceleratorPage = "${AcceleratorBase}?p=accelerator"
+$AcceleratorWinPattern = '<a href="(files/accelerator-[^"]+-windows\.zip)">'
+$AcceleratorLinuxPattern = '<a href="(files/accelerator-[^"]+-linux\.zip)">'
+
+function Get-Accelerator-LatestUrl {
+    param([string]$HtmlContent, [string]$Pattern, [string]$BaseUrl)
+    $accelMatches = [regex]::Matches($HtmlContent, $Pattern)
+    if ($accelMatches.Count -eq 0) {
+        Write-Host "WARNING: No Accelerator build found for this platform."
+        return $null
+    }
+    # Return all matches (all available builds for this platform)
+    $urls = @()
+    foreach ($m in $accelMatches) {
+        $relUrl = $m.Groups[1].Value
+        $fullUrl = if ($relUrl -match "^https?://") { $relUrl } else { $BaseUrl + $relUrl }
+        $urls += $fullUrl
+    }
+    return $urls
+}
 
 # Target directories (relative to script location)
 $BaseDir = $PSScriptRoot
@@ -174,11 +197,27 @@ function Update-ReadmeModVersions {
         [string]$ReadmePath,
         [string]$SourceModVersion,
         [string]$MetaModVersion,
-        [string]$StripperVersion
+        [string]$StripperVersion,
+        [string]$AcceleratorWinVersion,
+        [string]$AcceleratorLinuxVersion
     )
     Write-Host "Updating README.md mod versions..."
 
     $lines = Get-Content $ReadmePath
+
+    # Compose Accelerator version string for README
+    $accelVerStr = ""
+    if ($AcceleratorWinVersion -and $AcceleratorLinuxVersion) {
+        if ($AcceleratorWinVersion -eq $AcceleratorLinuxVersion) {
+            $accelVerStr = "$AcceleratorWinVersion (Windows/Linux)"
+        } else {
+            $accelVerStr = "$AcceleratorWinVersion (Windows), $AcceleratorLinuxVersion (Linux)"
+        }
+    } elseif ($AcceleratorWinVersion) {
+        $accelVerStr = "$AcceleratorWinVersion (Windows)"
+    } elseif ($AcceleratorLinuxVersion) {
+        $accelVerStr = "$AcceleratorLinuxVersion (Linux)"
+    }
 
     # Helper to update a line in the table
     function Update-ModLine {
@@ -199,6 +238,7 @@ function Update-ReadmeModVersions {
         $line = Update-ModLine $line "SourceMod" $SourceModVersion
         $line = Update-ModLine $line "MetaMod:Source" $MetaModVersion
         $line = Update-ModLine $line "Stripper: Source" $StripperVersion
+        $line = Update-ModLine $line "Accelerator" $accelVerStr
         $line
     }
 
@@ -229,6 +269,54 @@ function Get-Stripper-Version {
     param([string]$url)
     return Get-Version $url "stripper"
 }
+function Get-Accelerator-Version {
+    param([string]$url)
+    if (-not $url) { return $null }
+    $pattern = 'accelerator-([0-9]+\.[0-9]+\.[0-9]+-git[0-9]+-[a-f0-9]+)-'
+    if ($url -match $pattern) {
+        return $Matches[1]
+    }
+    throw "Failed to extract Accelerator version from string: $url"
+}
+
+function Update-Accelerator {
+    param (
+        [string[]]$ResolvedUrls
+    )
+    foreach ($resolvedUrl in $ResolvedUrls) {
+        if (-not $resolvedUrl) { continue }
+        $TempExtract = Join-Path $TempRoot "extract_accel"
+        if (Test-Path $TempExtract) { Remove-Item $TempExtract -Recurse -Force }
+
+        # Download
+        if ($resolvedUrl -match "\.zip($|\?)") {
+            $ext = ".zip"
+        } else {
+            throw "Unknown archive format: $resolvedUrl"
+        }
+        $TempFile = Join-Path $TempRoot ("accel" + $ext)
+        if (Test-Path $TempFile) { Remove-Item $TempFile -Force }
+
+        Write-Host "Downloading Accelerator $resolvedUrl..."
+        Invoke-WebRequest -Uri $resolvedUrl -OutFile $TempFile
+
+        Write-Host "Extracting Accelerator to $TempExtract..."
+        Expand-Archive -Path $TempFile -DestinationPath $TempExtract
+
+        # Merge extracted addons/* into $L4D2Dir/addons
+        $srcAddons = Join-Path $TempExtract "addons"
+        $dstAddons = Join-Path $L4D2Dir "addons"
+        if (Test-Path $srcAddons) {
+            Write-Host "Copying Accelerator files to $dstAddons ..."
+            Copy-Item -Path "$srcAddons\*" -Destination $dstAddons -Recurse -Force
+        } else {
+            Write-Host "WARNING: Accelerator archive did not contain an addons folder."
+        }
+
+        Remove-Item $TempFile -Force
+        Remove-Item $TempExtract -Recurse -Force
+    }
+}
 
 # Helper to read current versions from README.md
 function Get-CurrentModVersions {
@@ -237,6 +325,8 @@ function Get-CurrentModVersions {
         SourceMod = $null
         MetaMod = $null
         Stripper = $null
+        AcceleratorWin = $null
+        AcceleratorLinux = $null
     }
     if (-not (Test-Path $ReadmePath)) { return $result }
     $lines = Get-Content $ReadmePath
@@ -250,6 +340,18 @@ function Get-CurrentModVersions {
         if ($line -match '^\|\s*Stripper: Source\s*\|\s*([^\|]+)\|') {
             $result.Stripper = $Matches[1].Trim()
         }
+        if ($line -match '^\|\s*Accelerator\s*\|\s*([^\|]+)\|') {
+            # Extract Windows and Linux versions separately
+            $ver = $Matches[1]
+            $win = $null; $linux = $null
+            if ($ver -match '([0-9]+\.[0-9]+\.[0-9]+-git[0-9]+-[a-f0-9]+)\s*\(Windows\)') { $win = $Matches[1] }
+            if ($ver -match '([0-9]+\.[0-9]+\.[0-9]+-git[0-9]+-[a-f0-9]+)\s*\(Linux\)') { $linux = $Matches[1] }
+            if ($ver -match '([0-9]+\.[0-9]+\.[0-9]+-git[0-9]+-[a-f0-9]+)\s*\(Windows/Linux\)') {
+                $win = $Matches[1]; $linux = $Matches[1]
+            }
+            $result.AcceleratorWin = $win
+            $result.AcceleratorLinux = $linux
+        }
     }
     return $result
 }
@@ -262,6 +364,27 @@ $script:ResolvedUrls["metamod.linux"]   = Resolve-DownloadUrl $MetaModLinuxUrl
 $script:ResolvedUrls["stripper.win"]    = Resolve-DownloadUrl $StripperWinUrl
 $script:ResolvedUrls["stripper.linux"]  = Resolve-DownloadUrl $StripperLinuxUrl
 
+# Accelerator: fetch HTML once and extract both win/linux builds
+$accelHtml = (Invoke-WebRequest -Uri $AcceleratorPage -UseBasicParsing).Content
+$accelWinUrls = Get-Accelerator-LatestUrl $accelHtml $AcceleratorWinPattern $AcceleratorBase
+$accelLinuxUrls = Get-Accelerator-LatestUrl $accelHtml $AcceleratorLinuxPattern $AcceleratorBase
+$script:ResolvedUrls["accelerator.win"] = $accelWinUrls
+$script:ResolvedUrls["accelerator.linux"] = $accelLinuxUrls
+
+# Get Accelerator versions for both platforms (use first url for each if array)
+$accelWinVer = $null
+$accelLinuxVer = $null
+if ($accelWinUrls -is [array] -and $accelWinUrls.Count -gt 0) {
+    $accelWinVer = Get-Accelerator-Version $accelWinUrls[0]
+} elseif ($accelWinUrls) {
+    $accelWinVer = Get-Accelerator-Version $accelWinUrls
+}
+if ($accelLinuxUrls -is [array] -and $accelLinuxUrls.Count -gt 0) {
+    $accelLinuxVer = Get-Accelerator-Version $accelLinuxUrls[0]
+} elseif ($accelLinuxUrls) {
+    $accelLinuxVer = Get-Accelerator-Version $accelLinuxUrls
+}
+
 # Get current and latest versions
 $readmePath = Join-Path $BaseDir "README.md"
 $currentVersions = Get-CurrentModVersions $readmePath
@@ -273,17 +396,21 @@ $latestStripper = Get-Stripper-Version $ResolvedUrls["stripper.win"]
 Write-Host "SourceMod: local version = $($currentVersions.SourceMod), remote version = $latestSM"
 Write-Host "MetaMod:  local version = $($currentVersions.MetaMod),  remote version = $latestMM"
 Write-Host "Stripper: local version = $($currentVersions.Stripper), remote version = $latestStripper"
+Write-Host "Accelerator: local version (Windows) = $($currentVersions.AcceleratorWin), remote version (Windows) = $accelWinVer"
+Write-Host "Accelerator: local version (Linux) = $($currentVersions.AcceleratorLinux), remote version (Linux) = $accelLinuxVer"
 
 # Track which mods are updated
 $modsToUpdate = @()
 if ($currentVersions.SourceMod -ne $latestSM) { $modsToUpdate += "sourcemod" }
 if ($currentVersions.MetaMod -ne $latestMM) { $modsToUpdate += "metamod" }
 if ($currentVersions.Stripper -ne $latestStripper) { $modsToUpdate += "stripper" }
+if ($accelWinVer -and $currentVersions.AcceleratorWin -ne $accelWinVer) { $modsToUpdate += "accelerator.win" }
+if ($accelLinuxVer -and $currentVersions.AcceleratorLinux -ne $accelLinuxVer) { $modsToUpdate += "accelerator.linux" }
 
 # Only update mods that are outdated
 if ($modsToUpdate.Count -eq 0) {
     Write-Host "All mods are up to date. No update needed."
-    Cleanup-And-Exit 0
+    Remove-TempAndExit 0
 }
 
 # Update only outdated mods
@@ -301,20 +428,31 @@ foreach ($mod in $modsToUpdate) {
             Update-Mod -ResolvedUrl $ResolvedUrls["stripper.win"] -ModKey "stripper" -OsKey "win"
             Update-Mod -ResolvedUrl $ResolvedUrls["stripper.linux"] -ModKey "stripper" -OsKey "linux"
         }
+        "accelerator.win" {
+            if ($ResolvedUrls["accelerator.win"]) {
+                Update-Accelerator -ResolvedUrls $ResolvedUrls["accelerator.win"]
+            }
+        }
+        "accelerator.linux" {
+            if ($ResolvedUrls["accelerator.linux"]) {
+                Update-Accelerator -ResolvedUrls $ResolvedUrls["accelerator.linux"]
+            }
+        }
     }
 }
-
-# Clean up temp folder
-Cleanup-And-Exit 0
 
 # Update README.md mod versions before commit
 $newSM = $currentVersions.SourceMod
 $newMM = $currentVersions.MetaMod
 $newStripper = $currentVersions.Stripper
+$newAccelWin = $currentVersions.AcceleratorWin
+$newAccelLinux = $currentVersions.AcceleratorLinux
 if ($modsToUpdate -contains "sourcemod") { $newSM = $latestSM }
 if ($modsToUpdate -contains "metamod") { $newMM = $latestMM }
 if ($modsToUpdate -contains "stripper") { $newStripper = $latestStripper }
-Update-ReadmeModVersions -ReadmePath $readmePath -SourceModVersion $newSM -MetaModVersion $newMM -StripperVersion $newStripper
+if ($modsToUpdate -contains "accelerator.win") { $newAccelWin = $accelWinVer }
+if ($modsToUpdate -contains "accelerator.linux") { $newAccelLinux = $accelLinuxVer }
+Update-ReadmeModVersions -ReadmePath $readmePath -SourceModVersion $newSM -MetaModVersion $newMM -StripperVersion $newStripper -AcceleratorWinVersion $newAccelWin -AcceleratorLinuxVersion $newAccelLinux
 
 # Git add and commit
 git add .\left4dead2\addons\*
@@ -325,6 +463,8 @@ $commitParts = @()
 if ($modsToUpdate -contains "sourcemod") { $commitParts += "SourceMod to $latestSM" }
 if ($modsToUpdate -contains "metamod") { $commitParts += "MetaMod: Source to $latestMM" }
 if ($modsToUpdate -contains "stripper") { $commitParts += "Stripper: Source to $latestStripper" }
+if ($modsToUpdate -contains "accelerator.win") { $commitParts += "Accelerator (Windows) to $accelWinVer" }
+if ($modsToUpdate -contains "accelerator.linux") { $commitParts += "Accelerator (Linux) to $accelLinuxVer" }
 $CommitMessage = "update: " + ($commitParts -join ", ")
 git commit -m $CommitMessage
 
