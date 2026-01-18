@@ -303,8 +303,11 @@ function Update-Accelerator {
         Write-Host "Extracting Accelerator to $TempExtract..."
         Expand-Archive -Path $TempFile -DestinationPath $TempExtract
 
+        # Determine the OS subfolder based on the URL
+        $osFolder = if ($resolvedUrl -match "windows") { "windows" } elseif ($resolvedUrl -match "linux") { "linux" } else { $null }
+
         # Merge extracted addons/* into $L4D2Dir/addons
-        $srcAddons = Join-Path $TempExtract "addons"
+        $srcAddons = if ($osFolder) { Join-Path $TempExtract "$osFolder\addons" } else { Join-Path $TempExtract "addons" }
         $dstAddons = Join-Path $L4D2Dir "addons"
         if (Test-Path $srcAddons) {
             Write-Host "Copying Accelerator files to $dstAddons ..."
