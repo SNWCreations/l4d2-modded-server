@@ -84,14 +84,40 @@ function Get-Accelerator-LatestUrl {
         Write-Host "WARNING: No Accelerator build found for this platform."
         return $null
     }
-    # Return all matches (all available builds for this platform)
-    $urls = @()
-    foreach ($m in $accelMatches) {
-        $relUrl = $m.Groups[1].Value
-        $fullUrl = if ($relUrl -match "^https?://") { $relUrl } else { $BaseUrl + $relUrl }
-        $urls += $fullUrl
+    # Sort matches by version and git build number to pick the latest
+    $matchesWithBuild = $accelMatches | ForEach-Object {
+        $match = $_
+        $url = $match.Groups[1].Value
+        $fullUrl = if ($url -match "^https?://") { $url } else { $BaseUrl + $url }
+        # Extract version: accelerator-x.y.z-gitNNN-hash-platform.zip
+        $versionPattern = 'accelerator-([0-9]+\.[0-9]+\.[0-9]+)-git([0-9]+)-([a-f0-9]+)-'
+        if ($fullUrl -match $versionPattern) {
+            $ver = $Matches[1]
+            $build = [int]$Matches[2]
+            $hash = $Matches[3]
+            # Convert version to array of ints for sorting
+            $verArr = $ver -split '\.' | ForEach-Object { [int]$_ }
+            [PSCustomObject]@{
+                Url = $fullUrl
+                Version = $ver
+                VersionArr = $verArr
+                Build = $build
+                Hash = $hash
+            }
+        } else {
+            # If no match, put at end
+            [PSCustomObject]@{
+                Url = $fullUrl
+                Version = "0.0.0"
+                VersionArr = @(0,0,0)
+                Build = 0
+                Hash = ""
+            }
+        }
     }
-    return $urls
+    $latest = $matchesWithBuild | Sort-Object -Property @{Expression = { $_.VersionArr }; Descending = $true}, @{Expression = { $_.Build }; Descending = $true} | Select-Object -First 1
+    Write-Host "Selected Accelerator URL: $($latest.Url) (version $($latest.Version), git build $($latest.Build))"
+    return $latest.Url
 }
 
 # Target directories (relative to script location)
@@ -281,44 +307,48 @@ function Get-Accelerator-Version {
 
 function Update-Accelerator {
     param (
-        [string[]]$ResolvedUrls
+        [string]$ResolvedUrl
     )
-    foreach ($resolvedUrl in $ResolvedUrls) {
-        if (-not $resolvedUrl) { continue }
-        $TempExtract = Join-Path $TempRoot "extract_accel"
-        if (Test-Path $TempExtract) { Remove-Item $TempExtract -Recurse -Force }
+    if (-not $ResolvedUrl) { return }
+    $TempExtract = Join-Path $TempRoot "extract_accel"
+    if (Test-Path $TempExtract) { Remove-Item $TempExtract -Recurse -Force }
 
-        # Download
-        if ($resolvedUrl -match "\.zip($|\?)") {
-            $ext = ".zip"
-        } else {
-            throw "Unknown archive format: $resolvedUrl"
-        }
-        $TempFile = Join-Path $TempRoot ("accel" + $ext)
-        if (Test-Path $TempFile) { Remove-Item $TempFile -Force }
-
-        Write-Host "Downloading Accelerator $resolvedUrl..."
-        Invoke-WebRequest -Uri $resolvedUrl -OutFile $TempFile
-
-        Write-Host "Extracting Accelerator to $TempExtract..."
-        Expand-Archive -Path $TempFile -DestinationPath $TempExtract
-
-        # Determine the OS subfolder based on the URL
-        $osFolder = if ($resolvedUrl -match "windows") { "windows" } elseif ($resolvedUrl -match "linux") { "linux" } else { $null }
-
-        # Merge extracted addons/* into $L4D2Dir/addons
-        $srcAddons = if ($osFolder) { Join-Path $TempExtract "$osFolder\addons" } else { Join-Path $TempExtract "addons" }
-        $dstAddons = Join-Path $L4D2Dir "addons"
-        if (Test-Path $srcAddons) {
-            Write-Host "Copying Accelerator files to $dstAddons ..."
-            Copy-Item -Path "$srcAddons\*" -Destination $dstAddons -Recurse -Force
-        } else {
-            Write-Host "WARNING: Accelerator archive did not contain an addons folder."
-        }
-
-        Remove-Item $TempFile -Force
-        Remove-Item $TempExtract -Recurse -Force
+    # Download
+    if ($ResolvedUrl -match "\.zip($|\?)") {
+        $ext = ".zip"
+    } else {
+        throw "Unknown archive format: $ResolvedUrl"
     }
+    $TempFile = Join-Path $TempRoot ("accel" + $ext)
+    if (Test-Path $TempFile) { Remove-Item $TempFile -Force }
+
+    Write-Host "Downloading Accelerator $ResolvedUrl..."
+    Invoke-WebRequest -Uri $ResolvedUrl -OutFile $TempFile
+
+    Write-Host "Extracting Accelerator to $TempExtract..."
+    Expand-Archive -Path $TempFile -DestinationPath $TempExtract
+
+    # Determine the OS subfolder based on the URL
+    $osFolder = if ($ResolvedUrl -match "windows") { "windows" } elseif ($ResolvedUrl -match "linux") { "linux" } else { $null }
+
+    # Check for addons folder: first try OS-specific, then direct
+    $srcAddons = $null
+    if ($osFolder -and (Test-Path (Join-Path $TempExtract "$osFolder\addons"))) {
+        $srcAddons = Join-Path $TempExtract "$osFolder\addons"
+    } elseif (Test-Path (Join-Path $TempExtract "addons")) {
+        $srcAddons = Join-Path $TempExtract "addons"
+    }
+
+    $dstAddons = Join-Path $L4D2Dir "addons"
+    if ($srcAddons) {
+        Write-Host "Copying Accelerator files to $dstAddons ..."
+        Copy-Item -Path "$srcAddons\*" -Destination $dstAddons -Recurse -Force
+    } else {
+        Write-Host "WARNING: Accelerator archive did not contain an addons folder."
+    }
+
+    Remove-Item $TempFile -Force
+    Remove-Item $TempExtract -Recurse -Force
 }
 
 # Helper to read current versions from README.md
@@ -374,19 +404,9 @@ $accelLinuxUrls = Get-Accelerator-LatestUrl $accelHtml $AcceleratorLinuxPattern 
 $script:ResolvedUrls["accelerator.win"] = $accelWinUrls
 $script:ResolvedUrls["accelerator.linux"] = $accelLinuxUrls
 
-# Get Accelerator versions for both platforms (use first url for each if array)
-$accelWinVer = $null
-$accelLinuxVer = $null
-if ($accelWinUrls -is [array] -and $accelWinUrls.Count -gt 0) {
-    $accelWinVer = Get-Accelerator-Version $accelWinUrls[0]
-} elseif ($accelWinUrls) {
-    $accelWinVer = Get-Accelerator-Version $accelWinUrls
-}
-if ($accelLinuxUrls -is [array] -and $accelLinuxUrls.Count -gt 0) {
-    $accelLinuxVer = Get-Accelerator-Version $accelLinuxUrls[0]
-} elseif ($accelLinuxUrls) {
-    $accelLinuxVer = Get-Accelerator-Version $accelLinuxUrls
-}
+# Get Accelerator versions for both platforms
+$accelWinVer = if ($accelWinUrls) { Get-Accelerator-Version $accelWinUrls } else { $null }
+$accelLinuxVer = if ($accelLinuxUrls) { Get-Accelerator-Version $accelLinuxUrls } else { $null }
 
 # Get current and latest versions
 $readmePath = Join-Path $BaseDir "README.md"
@@ -433,12 +453,12 @@ foreach ($mod in $modsToUpdate) {
         }
         "accelerator.win" {
             if ($ResolvedUrls["accelerator.win"]) {
-                Update-Accelerator -ResolvedUrls $ResolvedUrls["accelerator.win"]
+                Update-Accelerator -ResolvedUrl $ResolvedUrls["accelerator.win"]
             }
         }
         "accelerator.linux" {
             if ($ResolvedUrls["accelerator.linux"]) {
-                Update-Accelerator -ResolvedUrls $ResolvedUrls["accelerator.linux"]
+                Update-Accelerator -ResolvedUrl $ResolvedUrls["accelerator.linux"]
             }
         }
     }
