@@ -6,7 +6,7 @@ title Left 4 Dead 2
 :: Set variables
 set ROOT_DIR=%~dp0
 if not exist server.ini copy NUL server.ini
-for /f %%S in (server.ini) do set %%S
+for /f "eol=#" %%S in (server.ini) do set %%S
 
 cls
 
