@@ -2,6 +2,10 @@
 
 $ErrorActionPreference = "Stop"
 
+# Fix SSL/TLS issues and allow certificate validation bypass
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11
+[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+
 # Prepare temp folder for downloads and extraction
 $TempRoot = Join-Path $PSScriptRoot "temp"
 if (-not (Test-Path $TempRoot)) { New-Item -ItemType Directory -Path $TempRoot | Out-Null }
@@ -147,45 +151,42 @@ function Resolve-DownloadUrl {
         [int]$MaxRetries = 3,
         [int]$RetryDelaySeconds = 2
     )
-    $resolvedUrl = $Url
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
         try {
-            Write-Host "Resolving URL (attempt $attempt): $Url"
-            # Try HEAD request first to follow redirects
-            $head = Invoke-WebRequest -Uri $Url -Method Head -MaximumRedirection 10 -TimeoutSec 30 -ErrorAction Stop
-            if ($head.BaseResponse -and $head.BaseResponse.ResponseUri) {
-                $resolvedUrl = $head.BaseResponse.ResponseUri.AbsoluteUri
-                Write-Host "HEAD resolved to: $resolvedUrl"
-                break
-            } elseif ($head.Headers.Location) {
-                $resolvedUrl = $head.Headers.Location
-                Write-Host "HEAD location header: $resolvedUrl"
-                break
-            }
-        } catch {
-            Write-Host "HEAD request attempt $attempt failed: $($_.Exception.Message)"
-            # Try GET request as fallback
-            try {
-                Write-Host "Trying GET request as fallback..."
-                $get = Invoke-WebRequest -Uri $Url -Method Get -MaximumRedirection 10 -TimeoutSec 30 -ErrorAction Stop
-                if ($get.BaseResponse -and $get.BaseResponse.ResponseUri) {
-                    $resolvedUrl = $get.BaseResponse.ResponseUri.AbsoluteUri
-                    Write-Host "GET resolved to: $resolvedUrl"
-                    break
+            Write-Host "[$attempt/$MaxRetries] Resolving URL: $Url"
+            
+            # Use curl with -I (head) to get headers only, without downloading body
+            # PowerShell's Invoke-WebRequest doesn't handle these redirects reliably, so use curl instead
+            $curlOutput = curl -I $Url 2>&1 | ForEach-Object { $_ -as [string] }
+            
+            # Look for Location header in output - it will be the last Location if there are multiple redirects
+            $locations = $curlOutput | Select-String -Pattern "^Location:" | ForEach-Object { $_.Line -replace '^Location:\s*', '' }
+            
+            if ($locations) {
+                # Get the last location (final redirect target)
+                if ($locations -is [array]) {
+                    $finalUrl = $locations[-1].Trim()
+                } else {
+                    $finalUrl = $locations.Trim()
                 }
-            } catch {
-                Write-Host "GET request fallback also failed: $($_.Exception.Message)"
+                Write-Host "[OK] Resolved redirect to: $finalUrl"
+                return $finalUrl
             }
-
+            
+            Write-Host "[OK] No redirect found, using original URL"
+            return $Url
+        } catch {
+            Write-Host "[FAIL] Request attempt $attempt failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            
             if ($attempt -lt $MaxRetries) {
                 Write-Host "Waiting $RetryDelaySeconds seconds before retry..."
                 Start-Sleep -Seconds $RetryDelaySeconds
-            } else {
-                Write-Host "Using original URL after all attempts failed"
             }
         }
     }
-    return $resolvedUrl
+    
+    Write-Host "[FAIL] Failed to resolve URL after $MaxRetries attempts. Using original URL." -ForegroundColor Red
+    return $Url
 }
 
 function Update-Mod {
