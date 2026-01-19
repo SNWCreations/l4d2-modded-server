@@ -34,39 +34,50 @@ function Get-LatestReleaseUrlRegex {
     param (
         [string]$PageUrl,
         [string]$Pattern,
-        [string]$Prefix = ""
+        [string]$Prefix = "",
+        [int]$MaxRetries = 3,
+        [int]$RetryDelaySeconds = 2
     )
-    Write-Host "Fetching release page: $PageUrl"
-    $html = Invoke-WebRequest -Uri $PageUrl -UseBasicParsing
-    $releaseMatches = [regex]::Matches($html.Content, $Pattern)
-    Write-Host "Found $($releaseMatches.Count) matches"
-    if ($releaseMatches.Count -gt 0) {
-        # Sort matches by version and git build number
-        $matchesWithBuild = $releaseMatches | ForEach-Object {
-            $match = $_
-            $url = $match.Groups[1].Value
-            $ver = $match.Groups[2].Value
-            $build = [int]$match.Groups[3].Value
-            # Convert version to array of ints for sorting
-            $verArr = $ver -split '\.' | ForEach-Object { [int]$versionPart = $_; $versionPart }
-            [PSCustomObject]@{
-                Url = $url
-                Version = $ver
-                VersionArr = $verArr
-                Build = $build
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        try {
+            Write-Host "Fetching release page: $PageUrl (attempt $attempt)"
+            $html = Invoke-WebRequest -Uri $PageUrl -UseBasicParsing -TimeoutSec 30
+            $releaseMatches = [regex]::Matches($html.Content, $Pattern)
+            Write-Host "Found $($releaseMatches.Count) matches"
+            if ($releaseMatches.Count -gt 0) {
+                # Sort matches by version and git build number
+                $matchesWithBuild = $releaseMatches | ForEach-Object {
+                    $match = $_
+                    $url = $match.Groups[1].Value
+                    $ver = $match.Groups[2].Value
+                    $build = [int]$match.Groups[3].Value
+                    # Convert version to array of ints for sorting
+                    $verArr = $ver -split '\.' | ForEach-Object { [int]$versionPart = $_; $versionPart }
+                    [PSCustomObject]@{
+                        Url = $url
+                        Version = $ver
+                        VersionArr = $verArr
+                        Build = $build
+                    }
+                }
+                $latest = $matchesWithBuild | Sort-Object -Property @{Expression = { $_.VersionArr }; Descending = $true}, @{Expression = { $_.Build }; Descending = $true} | Select-Object -First 1
+                $url = $latest.Url
+                if ($Prefix -and $url -notmatch "^https?://") {
+                    $url = $Prefix + $url
+                }
+                Write-Host "Selected URL: $url (version $($latest.Version), git build $($latest.Build))"
+                return $url
+            }
+        } catch {
+            Write-Host "Attempt $attempt failed: $($_.Exception.Message)"
+            if ($attempt -lt $MaxRetries) {
+                Write-Host "Waiting $RetryDelaySeconds seconds before retry..."
+                Start-Sleep -Seconds $RetryDelaySeconds
             }
         }
-        $latest = $matchesWithBuild | Sort-Object -Property @{Expression = { $_.VersionArr }; Descending = $true}, @{Expression = { $_.Build }; Descending = $true} | Select-Object -First 1
-        $url = $latest.Url
-        if ($Prefix -and $url -notmatch "^https?://") {
-            $url = $Prefix + $url
-        }
-        Write-Host "Selected URL: $url (version $($latest.Version), git build $($latest.Build))"
-        return $url
-    } else {
-        Write-Host "No match for pattern: $Pattern"
-        throw "Could not find download URL on $PageUrl"
     }
+    Write-Host "No match for pattern: $Pattern"
+    throw "Could not find download URL on $PageUrl after $MaxRetries attempts"
 }
 $StripperWinUrl = Get-LatestReleaseUrlRegex -PageUrl $StripperSnapshotPage -Pattern $StripperWinPattern -Prefix $StripperSnapshotPage
 $StripperLinuxUrl = Get-LatestReleaseUrlRegex -PageUrl $StripperSnapshotPage -Pattern $StripperLinuxPattern -Prefix $StripperSnapshotPage
@@ -132,18 +143,47 @@ if (-not $script:ResolvedUrls) {
 
 function Resolve-DownloadUrl {
     param (
-        [string]$Url
+        [string]$Url,
+        [int]$MaxRetries = 3,
+        [int]$RetryDelaySeconds = 2
     )
     $resolvedUrl = $Url
-    try {
-        $head = Invoke-WebRequest -Uri $Url -Method Head -MaximumRedirection 5 -ErrorAction Stop
-        if ($head.BaseResponse -and $head.BaseResponse.ResponseUri) {
-            $resolvedUrl = $head.BaseResponse.ResponseUri.AbsoluteUri
-        } elseif ($head.Headers.Location) {
-            $resolvedUrl = $head.Headers.Location
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        try {
+            Write-Host "Resolving URL (attempt $attempt): $Url"
+            # Try HEAD request first to follow redirects
+            $head = Invoke-WebRequest -Uri $Url -Method Head -MaximumRedirection 10 -TimeoutSec 30 -ErrorAction Stop
+            if ($head.BaseResponse -and $head.BaseResponse.ResponseUri) {
+                $resolvedUrl = $head.BaseResponse.ResponseUri.AbsoluteUri
+                Write-Host "HEAD resolved to: $resolvedUrl"
+                break
+            } elseif ($head.Headers.Location) {
+                $resolvedUrl = $head.Headers.Location
+                Write-Host "HEAD location header: $resolvedUrl"
+                break
+            }
+        } catch {
+            Write-Host "HEAD request attempt $attempt failed: $($_.Exception.Message)"
+            # Try GET request as fallback
+            try {
+                Write-Host "Trying GET request as fallback..."
+                $get = Invoke-WebRequest -Uri $Url -Method Get -MaximumRedirection 10 -TimeoutSec 30 -ErrorAction Stop
+                if ($get.BaseResponse -and $get.BaseResponse.ResponseUri) {
+                    $resolvedUrl = $get.BaseResponse.ResponseUri.AbsoluteUri
+                    Write-Host "GET resolved to: $resolvedUrl"
+                    break
+                }
+            } catch {
+                Write-Host "GET request fallback also failed: $($_.Exception.Message)"
+            }
+
+            if ($attempt -lt $MaxRetries) {
+                Write-Host "Waiting $RetryDelaySeconds seconds before retry..."
+                Start-Sleep -Seconds $RetryDelaySeconds
+            } else {
+                Write-Host "Using original URL after all attempts failed"
+            }
         }
-    } catch {
-        # fallback to original
     }
     return $resolvedUrl
 }
@@ -152,7 +192,9 @@ function Update-Mod {
     param (
         [string]$ResolvedUrl,
         [string]$ModKey,
-        [string]$OsKey = $null
+        [string]$OsKey = $null,
+        [int]$MaxRetries = 3,
+        [int]$RetryDelaySeconds = 5
     )
     $TempExtract = Join-Path $TempRoot "extract"
     if (Test-Path $TempExtract) { Remove-Item $TempExtract -Recurse -Force }
@@ -171,7 +213,28 @@ function Update-Mod {
     if (Test-Path $TempFile) { Remove-Item $TempFile -Force }
 
     Write-Host "Downloading $resolvedUrl..."
-    Invoke-WebRequest -Uri $resolvedUrl -OutFile $TempFile
+
+    # Download with retry logic
+    $downloadSuccess = $false
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        try {
+            Write-Host "  Download attempt $attempt of $MaxRetries..."
+            Invoke-WebRequest -Uri $resolvedUrl -OutFile $TempFile -TimeoutSec 60
+            $downloadSuccess = $true
+            Write-Host "  Download successful on attempt $attempt"
+            break
+        } catch {
+            Write-Host "  Attempt $attempt failed: $($_.Exception.Message)"
+            if ($attempt -lt $MaxRetries) {
+                Write-Host "  Waiting $RetryDelaySeconds seconds before retry..."
+                Start-Sleep -Seconds $RetryDelaySeconds
+            }
+        }
+    }
+
+    if (-not $downloadSuccess) {
+        throw "Failed to download $ModKey from $resolvedUrl after $MaxRetries attempts"
+    }
 
     Write-Host "Extracting to $TempExtract..."
     if ($ext -eq ".zip") {
@@ -307,7 +370,9 @@ function Get-Accelerator-Version {
 
 function Update-Accelerator {
     param (
-        [string]$ResolvedUrl
+        [string]$ResolvedUrl,
+        [int]$MaxRetries = 3,
+        [int]$RetryDelaySeconds = 5
     )
     if (-not $ResolvedUrl) { return }
     $TempExtract = Join-Path $TempRoot "extract_accel"
@@ -323,7 +388,28 @@ function Update-Accelerator {
     if (Test-Path $TempFile) { Remove-Item $TempFile -Force }
 
     Write-Host "Downloading Accelerator $ResolvedUrl..."
-    Invoke-WebRequest -Uri $ResolvedUrl -OutFile $TempFile
+
+    # Download with retry logic
+    $downloadSuccess = $false
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        try {
+            Write-Host "  Download attempt $attempt of $MaxRetries..."
+            Invoke-WebRequest -Uri $ResolvedUrl -OutFile $TempFile -TimeoutSec 60
+            $downloadSuccess = $true
+            Write-Host "  Download successful on attempt $attempt"
+            break
+        } catch {
+            Write-Host "  Attempt $attempt failed: $($_.Exception.Message)"
+            if ($attempt -lt $MaxRetries) {
+                Write-Host "  Waiting $RetryDelaySeconds seconds before retry..."
+                Start-Sleep -Seconds $RetryDelaySeconds
+            }
+        }
+    }
+
+    if (-not $downloadSuccess) {
+        throw "Failed to download Accelerator from $ResolvedUrl after $MaxRetries attempts"
+    }
 
     Write-Host "Extracting Accelerator to $TempExtract..."
     Expand-Archive -Path $TempFile -DestinationPath $TempExtract
@@ -398,22 +484,37 @@ $script:ResolvedUrls["stripper.win"]    = Resolve-DownloadUrl $StripperWinUrl
 $script:ResolvedUrls["stripper.linux"]  = Resolve-DownloadUrl $StripperLinuxUrl
 
 # Accelerator: fetch HTML once and extract both win/linux builds
-$accelHtml = (Invoke-WebRequest -Uri $AcceleratorPage -UseBasicParsing).Content
+$accelHtml = $null
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    try {
+        Write-Host "Fetching Accelerator page (attempt $attempt)..."
+        $accelHtml = (Invoke-WebRequest -Uri $AcceleratorPage -UseBasicParsing -TimeoutSec 30).Content
+        break
+    } catch {
+        Write-Host "Accelerator page fetch attempt $attempt failed: $($_.Exception.Message)"
+        if ($attempt -lt 3) {
+            Start-Sleep -Seconds 2
+        }
+    }
+}
+if (-not $accelHtml) {
+    throw "Failed to fetch Accelerator page after 3 attempts"
+}
 $accelWinUrls = Get-Accelerator-LatestUrl $accelHtml $AcceleratorWinPattern $AcceleratorBase
 $accelLinuxUrls = Get-Accelerator-LatestUrl $accelHtml $AcceleratorLinuxPattern $AcceleratorBase
 $script:ResolvedUrls["accelerator.win"] = $accelWinUrls
 $script:ResolvedUrls["accelerator.linux"] = $accelLinuxUrls
 
 # Get Accelerator versions for both platforms
-$accelWinVer = if ($accelWinUrls) { Get-Accelerator-Version $accelWinUrls } else { $null }
-$accelLinuxVer = if ($accelLinuxUrls) { Get-Accelerator-Version $accelLinuxUrls } else { $null }
+$accelWinVer = if ($script:ResolvedUrls["accelerator.win"]) { Get-Accelerator-Version $script:ResolvedUrls["accelerator.win"] } else { $null }
+$accelLinuxVer = if ($script:ResolvedUrls["accelerator.linux"]) { Get-Accelerator-Version $script:ResolvedUrls["accelerator.linux"] } else { $null }
 
 # Get current and latest versions
 $readmePath = Join-Path $BaseDir "README.md"
 $currentVersions = Get-CurrentModVersions $readmePath
-$latestSM = Get-SourceMod-Version $ResolvedUrls["sourcemod.win"]
-$latestMM = Get-MetaMod-Version $ResolvedUrls["metamod.win"]
-$latestStripper = Get-Stripper-Version $ResolvedUrls["stripper.win"]
+$latestSM = Get-SourceMod-Version $script:ResolvedUrls["sourcemod.win"]
+$latestMM = Get-MetaMod-Version $script:ResolvedUrls["metamod.win"]
+$latestStripper = Get-Stripper-Version $script:ResolvedUrls["stripper.win"]
 
 # Output local and remote versions for each mod
 Write-Host "SourceMod: local version = $($currentVersions.SourceMod), remote version = $latestSM"
