@@ -1,4 +1,9 @@
 #!/bin/bash
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    echo "Error: This script should be executed directly, not sourced."
+    echo "Run: ./steamcmd-dl.sh"
+    return 1
+fi
 # This script installs SteamCMD for Linux
 
 DIR="$(cd "$(dirname "$0")"; pwd)"
