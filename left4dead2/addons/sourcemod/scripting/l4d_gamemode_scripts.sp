@@ -5,12 +5,12 @@
 #include <sourcemod>
 
 #define CVAR_FLAGS FCVAR_PLUGIN
-#define PLUGIN_VERSION "1.8"
+#define PLUGIN_VERSION "1.8+fork.1" // This is different from the original version
 
 public Plugin:myinfo = 
 {
-	name = "Game Mode Config Loader",
-	author = "Thraka",
+	name = "Game Mode Config Loader (SNWCreations fork)",
+	author = "Thraka, SNWCreations",
 	description = "Executes a config file based on the current mp_gamemode and z_difficulty",
 	version = PLUGIN_VERSION,
 	url = "http://forums.alliedmods.net/showthread.php?t=93212"
@@ -77,7 +77,11 @@ public ConVarChange_Difficulty(Handle:convar, const String:oldValue[], const Str
 {
 	if (strcmp(oldValue, newValue) != 0)
 	{
-		ExecuteConfig();
+		// Fork start
+		// ExecuteConfig();
+		// Only execute difficulty-specific configs so we will not reset the difficulty, sounds interesting.
+		ExecuteDifficultyConfig();
+		// Fork end
 	}
 }
 
@@ -86,6 +90,53 @@ public Action:ResetCheatFlag(Handle:timer, any:flags)
 	SetCommandFlags("reset_gameconvars", _:flags);
 }
 
+// Fork start
+ExecuteDifficultyConfig()
+{
+	decl String:sGameMode[16];
+	decl String:sConfigName[256];
+
+	GetConVarString(g_hGameMode, sGameMode, sizeof(sGameMode));
+
+	// Only execute difficulty-specific configs for coop mode
+	if (!StrEqual(sGameMode, "coop", false))
+	{
+		return;
+	}
+
+	decl String:sGameDifficulty[16];
+	GetConVarString(g_hDifficulty, sGameDifficulty, sizeof(sGameDifficulty));
+
+	if (StrEqual(sGameDifficulty, "Easy", false))
+	{
+		GetConVarString(g_hConVar_ConfigCoop_Easy, sConfigName, sizeof(sConfigName));
+		TrimString(sConfigName);
+		LogMessage("Executing Difficulty Config: %s", sConfigName)
+		ServerCommand("exec %s", sConfigName);
+	}
+	else if (StrEqual(sGameDifficulty, "Normal", false))
+	{
+		GetConVarString(g_hConVar_ConfigCoop_Normal, sConfigName, sizeof(sConfigName));
+		TrimString(sConfigName);
+		LogMessage("Executing Difficulty Config: %s", sConfigName)
+		ServerCommand("exec %s", sConfigName);
+	}
+	else if (StrEqual(sGameDifficulty, "Hard", false))
+	{
+		GetConVarString(g_hConVar_ConfigCoop_Hard, sConfigName, sizeof(sConfigName));
+		TrimString(sConfigName);
+		LogMessage("Executing Difficulty Config: %s", sConfigName)
+		ServerCommand("exec %s", sConfigName);
+	}
+	else if (StrEqual(sGameDifficulty, "Impossible", false))
+	{
+		GetConVarString(g_hConVar_ConfigCoop_Impossible, sConfigName, sizeof(sConfigName));
+		TrimString(sConfigName);
+		LogMessage("Executing Difficulty Config: %s", sConfigName)
+		ServerCommand("exec %s", sConfigName);
+	}
+}
+// Fork end
 
 ExecuteConfig()
 {
