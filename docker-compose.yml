@@ -1,0 +1,25 @@
+services:
+  l4d2:
+    build: .
+    ports:
+      - "${PORT:-27015}:27015/udp"
+      - "${PORT:-27015}:27015/tcp"
+    volumes:
+      - l4d2-data:/server/server
+      - l4d2-steamcmd:/server/steamcmd
+      - ./custom_files:/server/custom_files:ro
+    environment:
+      - STEAM_USER=${STEAM_USER:-anonymous}
+      - TICKRATE=${TICKRATE:-128}
+      - MAXPLAYERS=${MAXPLAYERS:-32}
+      - PORT=${PORT:-27015}
+      - LAN=${LAN:-0}
+      - MAP=${MAP:-c1m1_hotel}
+      - EXEC=${EXEC:-on_boot}
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+volumes:
+  l4d2-data:
+  l4d2-steamcmd:

@@ -1,4 +1,6 @@
 /server/
 /steamcmd/
 /custom_files/*
+/custom_files_secret/
 temp/
+.env

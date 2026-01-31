@@ -40,6 +40,61 @@ All the following instructions will use the repo folder location as the root.
 - Run `./start.sh` from the root of the repository.
 - On first run, the script will download and install SteamCMD and all required files.
 
+### Docker
+
+Docker provides an easy way to run the server without installing dependencies on your host system.
+
+#### Prerequisites
+
+- Docker and Docker Compose installed
+- At least **10GB** free space for game files
+
+#### Setup
+
+1. Copy the environment template and configure it:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` to set your configuration:
+   ```ini
+   STEAM_USER=anonymous
+   PORT=27015
+   TICKRATE=128
+   MAXPLAYERS=32
+   LAN=0
+   MAP=c1m1_hotel
+   ```
+
+3. (Optional) Place custom files in `custom_files/` directory.
+
+#### Running the Server
+
+```bash
+# First run (or if Steam Guard authentication is needed)
+docker compose run --rm l4d2
+
+# Run in background
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop the server
+docker compose down
+```
+
+#### Notes
+
+- Game files are stored in a Docker volume (`l4d2-data`) and persist across container restarts.
+- SteamCMD is also stored in a volume (`l4d2-steamcmd`) to speed up subsequent starts.
+- Custom files from `custom_files/` are mounted read-only into the container.
+- If you need to use `custom_files_secret/`, add it to `docker-compose.yml`:
+  ```yaml
+  volumes:
+    - ./custom_files_secret:/server/custom_files_secret:ro
+  ```
+
 ### First Run (All Platforms)
 
 To check everything is working correctly run the following commands in the server console:
@@ -112,6 +167,8 @@ Any changes you have made to the files in this mod will be overwritten when the 
 I have created a folder /custom_files/ in the root of the project, where you mirror the contents of the `left4dead2` folder in the `server` folder, and any files you want to tweak, you put in there in the same spot and they will always overwrite the mods default files.
 
 So this can be used to set the server hostname to something you want, set the RCON or the admins of the server.
+
+For sensitive files (e.g., RCON passwords, API keys), you can use `custom_files_secret/` instead. This directory works the same way but is gitignored by default.
 
 Annoyed with recreating the folder structure? You can simply copy the file you want by running `custom_file <file>` in your Command Prompt or `.\custom_file.ps1 <file>` in PowerShell at the root of this repository folder, the script will recreate the path structure for you.
 

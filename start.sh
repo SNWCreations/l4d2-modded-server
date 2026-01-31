@@ -8,6 +8,12 @@ set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")"; pwd)"
 
+# Detect Docker environment
+IN_DOCKER=false
+if [ -f /.dockerenv ]; then
+    IN_DOCKER=true
+fi
+
 if [ ! -f server.ini ]; then
     touch server.ini
 fi
@@ -17,13 +23,32 @@ set -a
 source server.ini
 set +a
 
-echo "If you want to quit, close the Left 4 Dead 2 window and type Y followed by Enter."
+# Environment variables override server.ini (for Docker)
+STEAM_USER="${STEAM_USER:-anonymous}"
+TICKRATE="${TICKRATE:-128}"
+MAXPLAYERS="${MAXPLAYERS:-32}"
+PORT="${PORT:-27015}"
+LAN="${LAN:-0}"
+MAP="${MAP:-c1m1_hotel}"
+EXEC="${EXEC:-on_boot}"
 
-# Ensure PowerShell is installed (terminate if install fails)
-"$ROOT_DIR/install-pwsh.sh"
+if [ "$IN_DOCKER" = true ]; then
+    echo "Starting L4D2 Server (Docker)"
+    echo "  STEAM_USER: $STEAM_USER"
+    echo "  PORT: $PORT"
+    echo "  TICKRATE: $TICKRATE"
+    echo "  MAXPLAYERS: $MAXPLAYERS"
+    echo "  LAN: $LAN"
+    echo "  MAP: $MAP"
+else
+    echo "If you want to quit, close the Left 4 Dead 2 window and type Y followed by Enter."
 
-# Ensure required Linux tools are installed
-"$ROOT_DIR/install-linux-tools.sh"
+    # Ensure PowerShell is installed (terminate if install fails)
+    "$ROOT_DIR/install-pwsh.sh"
+
+    # Ensure required Linux tools are installed
+    "$ROOT_DIR/install-linux-tools.sh"
+fi
 
 # Ensure steamcmd exists using Linux installer if not present
 if [ ! -x "$ROOT_DIR/steamcmd/steamcmd.sh" ]; then
@@ -65,7 +90,14 @@ fi
 
 # Merge your custom files in
 echo "Copying custom files."
-rsync -a "$ROOT_DIR/custom_files/" "$ROOT_DIR/server/left4dead2/"
+if [ "$IN_DOCKER" = true ]; then
+    # In Docker, custom_files might be empty or not mounted
+    if [ -d "$ROOT_DIR/custom_files" ] && [ "$(ls -A "$ROOT_DIR/custom_files" 2>/dev/null)" ]; then
+        rsync -a "$ROOT_DIR/custom_files/" "$ROOT_DIR/server/left4dead2/"
+    fi
+else
+    rsync -a "$ROOT_DIR/custom_files/" "$ROOT_DIR/server/left4dead2/"
+fi
 
 # Merge your custom files secrets in (if they exist)
 if [ -d "$ROOT_DIR/custom_files_secret/" ]; then
@@ -75,8 +107,14 @@ fi
 
 echo "Left 4 Dead 2 started."
 
-# Start server as separate process
-"$ROOT_DIR/server/srcds_run" -console -game left4dead2 -port "$PORT" -tickrate "$TICKRATE" +log on +sv_setmax 31 +sv_maxplayers "$MAXPLAYERS" +sv_visiblemaxplayers "$MAXPLAYERS" +sv_lan "$LAN" +map "$MAP" +exec "$EXEC"
+# Start server
+if [ "$IN_DOCKER" = true ]; then
+    # Use exec for proper signal handling in Docker
+    exec "$ROOT_DIR/server/srcds_run" -console -game left4dead2 -port "$PORT" -tickrate "$TICKRATE" +log on +sv_setmax 31 +sv_maxplayers "$MAXPLAYERS" +sv_visiblemaxplayers "$MAXPLAYERS" +sv_lan "$LAN" +map "$MAP" +exec "$EXEC"
+else
+    # Start server as separate process
+    "$ROOT_DIR/server/srcds_run" -console -game left4dead2 -port "$PORT" -tickrate "$TICKRATE" +log on +sv_setmax 31 +sv_maxplayers "$MAXPLAYERS" +sv_visiblemaxplayers "$MAXPLAYERS" +sv_lan "$LAN" +map "$MAP" +exec "$EXEC"
 
-echo "WARNING: L4D2 closed or crashed."
-read -p "Press Enter to exit..."
+    echo "WARNING: L4D2 closed or crashed."
+    read -p "Press Enter to exit..."
+fi
